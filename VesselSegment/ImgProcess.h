@@ -16,23 +16,30 @@
 
 using namespace cv;
 using namespace std;
+
 class ImgProcess
 {
-	public:		
-		int LoadImage(string szInput);
-		int BoundaryDetction_Canny();
-		int BoundaryDetction_Frangi();
-		Mat GetMask();
-		Mat GetCenterline();
+public:
+			
+	int LoadImage(string szInput);
+	int BoundaryDetction_Canny();
+	int BoundaryDetction_Frangi();
+	Mat GetMask() {
+		return m_mask;
+	};
+	Mat GetCenterline(){
+		return m_centerline;
+	};
 
-	private:
-		Mat m_Img;
-		Mat m_mask;
-		Mat m_centerline;
+protected:
+	void thinning(Mat& im);
+	void thinningIteration(Mat& im, int iter);
+	Mat  CannyThreshold(Mat src, int lowThreshold);
 
-
-		void thinning(Mat& im);
-		void thinningIteration(Mat& im, int iter);
+private:
+	Mat m_Img;
+	Mat m_mask;
+	Mat m_centerline;
 		
 };
 

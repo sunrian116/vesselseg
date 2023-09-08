@@ -1,43 +1,38 @@
 #include "ImgProcess.h"
 
-Mat src, src_gray;
-Mat dst, detected_edges;
-int lowThreshold = 0;
-const int max_lowThreshold = 100;
-const int ratio = 3;
-const int kernel_size = 3;
-const char* window_name = "Edge Map";
 
-static void CannyThreshold(int lowThreshold, void*)
+Mat ImgProcess::CannyThreshold(Mat src, int lowThreshold)
 {
+	const int max_lowThreshold = 100;
+	const int ratio = 3;
+	const int kernel_size = 3;	
+	Mat src_gray;
+	Mat dst, detected_edges;
+	dst.create(src.size(), src.type());
+	cvtColor(src, src_gray, COLOR_BGR2GRAY);
 	blur(src_gray, detected_edges, Size(3, 3));
 	Canny(detected_edges, detected_edges, lowThreshold, lowThreshold*3, kernel_size);
 	dst = Scalar::all(0);
 	src.copyTo(dst, detected_edges);
-	imshow(window_name, dst);
+#ifdef DEBUG
+	imshow("Edge Map", dst);
+#endif // DEBUG
+	return dst;
+
+	
 }
 int ImgProcess::LoadImage(string szInput)
 {
 	m_Img = imread(szInput, COLOR_BGR2GRAY);
 
-	if (m_Img.empty())
-	{
+	if (m_Img.empty()){
 		cout << "Could not read the image: " << szInput << endl;
-		return 1;
+		return -1;
 	}
 	return 0;
 }
-Mat ImgProcess::GetMask()
-{
 
-	return m_mask;
-}
 
-Mat ImgProcess::GetCenterline()
-{
-
-	return m_centerline;
-}
 int ImgProcess::BoundaryDetction_Frangi()
 {
 	Mat InputImg = m_Img;
@@ -99,13 +94,11 @@ int ImgProcess::BoundaryDetction_Frangi()
 
 	img_color = Mat::zeros(img_edge_8s.size(), CV_8UC3);
 	for (int y = 0; y < img_color.rows; y++)
-		for (int x = 0; x < img_color.cols; x++)
-		{
+		for (int x = 0; x < img_color.cols; x++){
 			int label = labels.at<int>(y, x);
 			CV_Assert(0 <= label && label <= nccomps);
 
 			if (label == (reslabel - 1)) {
-
 				img_color.at<Vec3b>(y, x) = Vec3b(0, 0, 255);//set red color for the vessel.
 			}
 			else {
@@ -113,9 +106,12 @@ int ImgProcess::BoundaryDetction_Frangi()
 			}
 
 		}
-
+#ifdef DEBUG
 	imshow("Labeled map", img_color);
 	waitKey();
+#endif // DEBUG
+
+	
 	m_mask = img_color;
 	//imwrite(szOutput, img_color);
 
@@ -123,8 +119,11 @@ int ImgProcess::BoundaryDetction_Frangi()
 	cvtColor(img_color, togray, COLOR_BGR2GRAY);
 	threshold(togray, resbw, 0, 255, THRESH_BINARY | THRESH_OTSU);
 	thinning(resbw);
+#ifdef DEBUG
 	imshow("centerline:", resbw);
 	waitKey();
+#endif // DEBUG
+		
 	m_centerline = resbw;
 
 	Mat dstwithcl;
@@ -132,34 +131,34 @@ int ImgProcess::BoundaryDetction_Frangi()
 	cvtColor(m_Img, Imggray, COLOR_RGB2GRAY);
 	
 	addWeighted(Imggray, 0.7, resbw, 0.3, 0, dstwithcl);
-
+#ifdef DEBUG
 	imshow("centerlinecolor:", dstwithcl);
 	waitKey();
-	
+#endif // DEBUG
+
 	return 0;
 }
 int ImgProcess::BoundaryDetction_Canny()
 {
-	Mat InputImg = m_Img;
-
-	src = InputImg;
-
-	dst.create(src.size(), src.type());
-	cvtColor(src, src_gray, COLOR_BGR2GRAY);
-	namedWindow(window_name, WINDOW_AUTOSIZE);
-	createTrackbar("Min Threshold:", window_name, &lowThreshold, max_lowThreshold, CannyThreshold);
-	CannyThreshold(22, 0);
-	waitKey(0);
+		
+	//namedWindow(window_name, WINDOW_AUTOSIZE);
+	//createTrackbar("Min Threshold:", window_name, &lowThreshold, max_lowThreshold, CannyThreshold);
+	const int thred = 22;
+	auto dst = CannyThreshold(m_Img, thred);
+	
 
 	Mat resImg;
+#ifdef DEBUG
 	imshow("dst", dst);
+	waitKey(0);
+#endif // DEBUG
+
+	
 	cvtColor(dst, resImg, COLOR_BGR2GRAY);
 	Mat cropImg;
-
 	Mat img_bw;
-
 	Mat grayImg;
-	cvtColor(InputImg, grayImg, COLOR_BGR2GRAY);
+	cvtColor(m_Img, grayImg, COLOR_BGR2GRAY);
 	
 	//invert intensity of the input image, make the vessle bright.
 	for (int j = 0; j < grayImg.rows; j++)
@@ -169,7 +168,10 @@ int ImgProcess::BoundaryDetction_Canny()
 			grayImg.at<uchar>(j, i) = 255 - (int)grayImg.at<uchar>(j, i);
 		}
 	}
+#ifdef DEBUG
 	imshow("inverse image", grayImg);
+	waitKey(0);
+#endif // DEBUG	
 
 	//Adaptive threshold.
 	int cropsize = 20;
@@ -177,13 +179,10 @@ int ImgProcess::BoundaryDetction_Canny()
 	Mat cropdst;
 	Mat dst_gray;
 	cvtColor(dst, dst_gray, COLOR_BGR2GRAY);
-	for (int j = 0; j < dst.rows; j++)
-	{
-		for (int i = 0; i < dst.cols; i++)
-		{
+	for (int j = 0; j < dst.rows; j++){
+		for (int i = 0; i < dst.cols; i++){
 			int intensity = (int)dst_gray.at<uchar>(j, i);
-			if (intensity > 0)
-			{
+			if (intensity > 0){
 				//find the local area and use otsu threshold to fill the hole.
 				if (i - cropsize >= 0 && i + cropsize < dst.cols && j - cropsize >= 0 && j + cropsize < dst.rows) {
 					cropImg = grayImg(Range(j - cropsize, j + cropsize), Range(i - cropsize, i + cropsize));
@@ -194,10 +193,9 @@ int ImgProcess::BoundaryDetction_Canny()
 					//update the pixel value.
 					int sx = 0;
 					int sy;
-					for (int n = (j - cropsize); n < (j + cropsize); n++) {
+					for (int n = (j - cropsize); n < (j + cropsize); n++){
 						sy = 0;
-						for (int m = (i - cropsize); m < (i + cropsize); m++)
-						{
+						for (int m = (i - cropsize); m < (i + cropsize); m++){
 							resImg.at<uchar>(n, m) = (int)img_bw.at<uchar>(sx, sy);
 							sy++;
 						}
@@ -208,17 +206,20 @@ int ImgProcess::BoundaryDetction_Canny()
 			}
 		}
 	}
-
+#ifdef DEBUG
 	imshow("Otsu image", resImg);
 	waitKey(0);
-	
+#endif // DEBUG	
 	
 	Mat img_edge, labels, centroids, img_color, stats;
 
 	threshold(resImg, img_edge, 120, 255, THRESH_BINARY);
-
+#ifdef DEBUG
 	imshow("Otsu image", img_edge);
 	waitKey(0);
+#endif // DEBUG
+
+	
 	Mat img_edge_gray;
 	//imwrite(szOutput, img_edge);
 	Mat img_edge_8s;
@@ -231,8 +232,7 @@ int ImgProcess::BoundaryDetction_Canny()
 	std::map<int, int> order;
 
 	colors[0] = Vec3b(0, 0, 0); // background pixels remain black.
-	for (i = 1; i <= nccomps; i++) {
-		
+	for (i = 1; i <= nccomps; i++) {		
 		// Mapping values to keys
 		order[(int)stats.at<int>(i - 1, CC_STAT_AREA)] = i;
 
@@ -259,8 +259,7 @@ int ImgProcess::BoundaryDetction_Canny()
 
 	img_color = Mat::zeros(img_edge_8s.size(), CV_8UC3);
 	for (int y = 0; y < img_color.rows; y++)
-		for (int x = 0; x < img_color.cols; x++)
-		{
+		for (int x = 0; x < img_color.cols; x++){
 			int label = labels.at<int>(y, x);
 			CV_Assert(0 <= label && label <= nccomps);
 
@@ -273,25 +272,30 @@ int ImgProcess::BoundaryDetction_Canny()
 			}
 			
 		}
-
+#ifdef DEBUG
 	imshow("Labeled map", img_color);
 	waitKey();
+#endif // DEBUG
+
 	m_mask = img_color;
-	//imwrite(szOutput, img_color);
 
 	Mat togray, resbw;
 	cvtColor(img_color, togray, COLOR_BGR2GRAY);
 	threshold(togray, resbw, 0, 255, THRESH_BINARY | THRESH_OTSU);
 	thinning(resbw);
+#ifdef DEBUG
 	imshow("centerline:", resbw);
 	waitKey();
+#endif // DEBUG	
 	m_centerline = resbw;
 
 	Mat dstwithcl;
 	addWeighted(grayImg, 0.7, resbw, 0.3, 0, dstwithcl);
-
+#ifdef DEBUG
 	imshow("centerlinecolor:", dstwithcl);
 	waitKey();
+#endif // DEBUG
+
 	//imwrite(szOutput, vesselness*255);
 
 	//imwrite(szOutput, resImg);
