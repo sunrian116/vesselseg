@@ -16,6 +16,7 @@ Mat ImgProcess::CannyThreshold(Mat src, int lowThreshold)
 	src.copyTo(dst, detected_edges);
 #ifdef DEBUG
 	imshow("Edge Map", dst);
+	waitKey();
 #endif // DEBUG
 	return dst;
 
@@ -32,55 +33,31 @@ int ImgProcess::LoadImage(string szInput)
 	return 0;
 }
 
-
-int ImgProcess::BoundaryDetction_Frangi()
+int ImgProcess::FindVessel(Mat boundary)
 {
-	Mat InputImg = m_Img;
 	
-	//set default frangi opts
-	frangi2d_opts_t opts;
-	frangi2d_createopts(&opts);
-
-	Mat input_img_fl;
-	InputImg.convertTo(input_img_fl, CV_32FC1);
-	Mat vesselness, scale, angles;
-	frangi2d(input_img_fl, vesselness, scale, angles, opts);
-
-	vesselness = vesselness * 255;
-
-	Mat vesselgray;
-	cvtColor(vesselness, vesselgray, COLOR_BGR2GRAY);
 	Mat img_edge, labels, centroids, img_color, stats;
+	//bindary the image.
+	threshold(boundary, img_edge, 20, 255, THRESH_BINARY);
 
-	threshold(vesselgray, img_edge, 20, 255, THRESH_BINARY);
-
-	Mat img_edge_gray;
-	//imwrite(szOutput, img_edge);
+	Mat img_edge_gray;	
 	Mat img_edge_8s;
 	img_edge.convertTo(img_edge_8s, CV_8S);
 	int i, nccomps = connectedComponentsWithStats(img_edge_8s, labels, stats, centroids);
 	cout << "Total Connected Components Detected: " << nccomps << endl;
-
-	vector<Vec3b> colors(nccomps + 1);
 	// Ordered map
 	std::map<int, int> order;
 
-	colors[0] = Vec3b(0, 0, 0); // background pixels remain black.
-	for (i = 1; i <= nccomps; i++) {
-
+	for (i = 1; i <= nccomps; i++){
 		// Mapping values to keys
 		order[(int)stats.at<int>(i - 1, CC_STAT_AREA)] = i;
-
 	}
 
 	// Iterating the map and
 	// printing ordered values
-	for (auto i = order.begin(); i
-		!= order.end(); i++) {
-		std::cout << i->first
-			<< " : "
-			<< i->second << '\n';
-	}
+	/*for (auto i = order.begin(); i != order.end(); i++){
+		std::cout << i->first << " : " << i->second << '\n';
+	}*/
 
 	//remove the biggest area, which is the background.
 	auto it = order.end();
@@ -94,7 +71,7 @@ int ImgProcess::BoundaryDetction_Frangi()
 
 	img_color = Mat::zeros(img_edge_8s.size(), CV_8UC3);
 	for (int y = 0; y < img_color.rows; y++)
-		for (int x = 0; x < img_color.cols; x++){
+		for (int x = 0; x < img_color.cols; x++) {
 			int label = labels.at<int>(y, x);
 			CV_Assert(0 <= label && label <= nccomps);
 
@@ -111,10 +88,9 @@ int ImgProcess::BoundaryDetction_Frangi()
 	waitKey();
 #endif // DEBUG
 
-	
 	m_mask = img_color;
-	//imwrite(szOutput, img_color);
-
+	
+	//Find centerline.
 	Mat togray, resbw;
 	cvtColor(img_color, togray, COLOR_BGR2GRAY);
 	threshold(togray, resbw, 0, 255, THRESH_BINARY | THRESH_OTSU);
@@ -122,23 +98,43 @@ int ImgProcess::BoundaryDetction_Frangi()
 #ifdef DEBUG
 	imshow("centerline:", resbw);
 	waitKey();
-#endif // DEBUG
-		
-	m_centerline = resbw;
+#endif // DEBUG	
 
+	//Combine centerline with the original image.
 	Mat dstwithcl;
 	Mat Imggray;
 	cvtColor(m_Img, Imggray, COLOR_RGB2GRAY);
-	
 	addWeighted(Imggray, 0.7, resbw, 0.3, 0, dstwithcl);
+	m_centerline = dstwithcl;
 #ifdef DEBUG
 	imshow("centerlinecolor:", dstwithcl);
 	waitKey();
 #endif // DEBUG
-
-	return 0;
 }
-int ImgProcess::BoundaryDetction_Canny()
+Mat ImgProcess::BoundaryDetction_Frangi()
+{
+	Mat InputImg = m_Img;
+	
+	//set default frangi opts
+	frangi2d_opts_t opts;
+	frangi2d_createopts(&opts);
+
+	Mat input_img_fl;
+	InputImg.convertTo(input_img_fl, CV_32FC1);
+	Mat vesselness, scale, angles;
+	frangi2d(input_img_fl, vesselness, scale, angles, opts);
+
+	vesselness = vesselness * 255;	
+	Mat vesselgray;
+	cvtColor(vesselness, vesselgray, COLOR_BGR2GRAY);
+#ifdef DEBUG
+	imshow("Frange:", vesselgray);
+#endif // DEBUG
+
+
+	return vesselgray;
+}
+Mat ImgProcess::BoundaryDetction_Canny()
 {
 		
 	//namedWindow(window_name, WINDOW_AUTOSIZE);
@@ -209,97 +205,8 @@ int ImgProcess::BoundaryDetction_Canny()
 #ifdef DEBUG
 	imshow("Otsu image", resImg);
 	waitKey(0);
-#endif // DEBUG	
-	
-	Mat img_edge, labels, centroids, img_color, stats;
-
-	threshold(resImg, img_edge, 120, 255, THRESH_BINARY);
-#ifdef DEBUG
-	imshow("Otsu image", img_edge);
-	waitKey(0);
 #endif // DEBUG
-
-	
-	Mat img_edge_gray;
-	//imwrite(szOutput, img_edge);
-	Mat img_edge_8s;
-	img_edge.convertTo(img_edge_8s, CV_8S);
-	int i, nccomps = connectedComponentsWithStats(img_edge_8s, labels, stats, centroids);
-	cout << "Total Connected Components Detected: " << nccomps << endl;
-
-	vector<Vec3b> colors(nccomps + 1);
-	// Ordered map
-	std::map<int, int> order;
-
-	colors[0] = Vec3b(0, 0, 0); // background pixels remain black.
-	for (i = 1; i <= nccomps; i++) {		
-		// Mapping values to keys
-		order[(int)stats.at<int>(i - 1, CC_STAT_AREA)] = i;
-
-	}
-
-	// Iterating the map and
-	// printing ordered values
-	for (auto i = order.begin(); i
-		!= order.end(); i++) {
-		std::cout << i->first
-			<< " : "
-			<< i->second << '\n';
-	}
-
-	//remove the biggest area, which is the background.
-	auto it = order.end();
-	it--;
-	order.erase(it);
-
-	it = order.end();
-	it--;
-	cout << "vessel: " << it->second << endl;
-	int reslabel = it->second;
-
-	img_color = Mat::zeros(img_edge_8s.size(), CV_8UC3);
-	for (int y = 0; y < img_color.rows; y++)
-		for (int x = 0; x < img_color.cols; x++){
-			int label = labels.at<int>(y, x);
-			CV_Assert(0 <= label && label <= nccomps);
-
-			if (label == (reslabel - 1)) {
-
-				img_color.at<Vec3b>(y, x) = Vec3b(0, 0, 255);//set red color for the vessel.
-			}
-			else {
-				img_color.at<Vec3b>(y, x) = Vec3b(0, 0, 0);
-			}
-			
-		}
-#ifdef DEBUG
-	imshow("Labeled map", img_color);
-	waitKey();
-#endif // DEBUG
-
-	m_mask = img_color;
-
-	Mat togray, resbw;
-	cvtColor(img_color, togray, COLOR_BGR2GRAY);
-	threshold(togray, resbw, 0, 255, THRESH_BINARY | THRESH_OTSU);
-	thinning(resbw);
-#ifdef DEBUG
-	imshow("centerline:", resbw);
-	waitKey();
-#endif // DEBUG	
-	m_centerline = resbw;
-
-	Mat dstwithcl;
-	addWeighted(grayImg, 0.7, resbw, 0.3, 0, dstwithcl);
-#ifdef DEBUG
-	imshow("centerlinecolor:", dstwithcl);
-	waitKey();
-#endif // DEBUG
-
-	//imwrite(szOutput, vesselness*255);
-
-	//imwrite(szOutput, resImg);
-	return 0;
+	return resImg;
 }
 
 void ImgProcess::thinningIteration(Mat& im, int iter)

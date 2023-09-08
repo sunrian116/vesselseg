@@ -22,14 +22,15 @@ class ImgProcess
 public:
 			
 	int LoadImage(string szInput);
-	int BoundaryDetction_Canny();
-	int BoundaryDetction_Frangi();
+	Mat BoundaryDetction_Canny();
+	Mat BoundaryDetction_Frangi();
 	Mat GetMask() {
 		return m_mask;
 	};
 	Mat GetCenterline(){
 		return m_centerline;
 	};
+	int FindVessel(Mat boundary);
 
 protected:
 	void thinning(Mat& im);

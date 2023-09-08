@@ -8,15 +8,17 @@ int main(int argc, char* argv[])
 {
     //std::cout << "Hello World!\n";
     ImgProcess ImgPs;
+    Mat boundary;
     //ImgPs.LoadImage(argv[1]);
     ImgPs.LoadImage("..//data//Coronary.png");
-    ImgPs.BoundaryDetction_Frangi();
-    //ImgPs.BoundaryDetction_Canny();
+    //boundary = ImgPs.BoundaryDetction_Frangi();
+    boundary = ImgPs.BoundaryDetction_Canny();
+    ImgPs.FindVessel(boundary);
 
     Mat mask = ImgPs.GetMask();    
     Mat centerline = ImgPs.GetCenterline();
-    imwrite("..//data//mask.png", mask);
-    imwrite("..//data//centerline.png", centerline);
+    imwrite("..//data//mask_canny.png", mask);
+    imwrite("..//data//centerline_canny.png", centerline);
 
 
 }
