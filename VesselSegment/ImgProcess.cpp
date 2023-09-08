@@ -1,6 +1,5 @@
 #include "ImgProcess.h"
 
-
 Mat ImgProcess::CannyThreshold(Mat src, int lowThreshold)
 {
 	const int max_lowThreshold = 100;
@@ -15,7 +14,7 @@ Mat ImgProcess::CannyThreshold(Mat src, int lowThreshold)
 	dst = Scalar::all(0);
 	src.copyTo(dst, detected_edges);
 #ifdef DEBUG
-	imshow("Edge Map", dst);
+	imshow("Candy Edge Map", dst);
 	waitKey();
 #endif // DEBUG
 	return dst;
@@ -84,7 +83,7 @@ int ImgProcess::FindVessel(Mat boundary)
 
 		}
 #ifdef DEBUG
-	imshow("Labeled map", img_color);
+	imshow("Colored vessel map", img_color);
 	waitKey();
 #endif // DEBUG
 
@@ -107,7 +106,7 @@ int ImgProcess::FindVessel(Mat boundary)
 	addWeighted(Imggray, 0.7, resbw, 0.3, 0, dstwithcl);
 	m_centerline = dstwithcl;
 #ifdef DEBUG
-	imshow("centerlinecolor:", dstwithcl);
+	imshow("centerline_combine:", dstwithcl);
 	waitKey();
 #endif // DEBUG
 }
@@ -144,11 +143,6 @@ Mat ImgProcess::BoundaryDetction_Canny()
 	
 
 	Mat resImg;
-#ifdef DEBUG
-	imshow("dst", dst);
-	waitKey(0);
-#endif // DEBUG
-
 	
 	cvtColor(dst, resImg, COLOR_BGR2GRAY);
 	Mat cropImg;

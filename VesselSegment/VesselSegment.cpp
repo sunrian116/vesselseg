@@ -11,14 +11,14 @@ int main(int argc, char* argv[])
     Mat boundary;
     //ImgPs.LoadImage(argv[1]);
     ImgPs.LoadImage("..//data//Coronary.png");
-    //boundary = ImgPs.BoundaryDetction_Frangi();
-    boundary = ImgPs.BoundaryDetction_Canny();
+    boundary = ImgPs.BoundaryDetction_Frangi();
+    //boundary = ImgPs.BoundaryDetction_Canny();
     ImgPs.FindVessel(boundary);
 
     Mat mask = ImgPs.GetMask();    
     Mat centerline = ImgPs.GetCenterline();
-    imwrite("..//data//mask_canny.png", mask);
-    imwrite("..//data//centerline_canny.png", centerline);
+    imwrite("..//data//mask_frangi.png", mask);
+    imwrite("..//data//centerline_frangi.png", centerline);
 
 
 }
